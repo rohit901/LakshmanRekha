@@ -1,10 +1,13 @@
 package com.example.covidandro;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -13,6 +16,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.KeyguardManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -23,12 +27,23 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.drawable.Drawable;
+import android.icu.text.SimpleDateFormat;
 import android.location.Location;
 import android.location.LocationManager;
+import android.media.ExifInterface;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
@@ -46,6 +61,9 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 import com.androidhiddencamera.HiddenCameraFragment;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -55,11 +73,6 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
 import com.karumi.dexter.Dexter;
 import com.karumi.dexter.MultiplePermissionsReport;
 import com.karumi.dexter.PermissionToken;
@@ -67,20 +80,29 @@ import com.karumi.dexter.listener.DexterError;
 import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.PermissionRequestErrorListener;
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
+import com.wooplr.spotlight.SpotlightView;
+
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Array;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static java.security.AccessController.getContext;
@@ -88,11 +110,15 @@ import static java.security.AccessController.getContext;
 public class MainActivity extends AppCompatActivity {
 
     private HiddenCameraFragment mHiddenCameraFragment;
-    private StorageReference mStorageRef;
-    private DatabaseReference mDatabase;
     TextView alarmTV;
     Button uploadBtn;
+    Boolean isFirstTime;
+    Button sendPost;
     String regImgURL;
+    private SpotlightView spotLight;
+
+    private String upload_URL = "http://piyush16.pythonanywhere.com/upload";
+    private RequestQueue rQueue;
 
     double usrLat = 0.0;
     double usrLong = 0.0;
@@ -119,6 +145,7 @@ public class MainActivity extends AppCompatActivity {
             new Intent().setComponent(new ComponentName("com.htc.pitroad", "com.htc.pitroad.landingpage.activity.LandingPageActivity")),
             new Intent().setComponent(new ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.MainActivity"))};
     String id;
+    String imageFilePath="";
 
 //    @Override
 //    public void onTrimMemory(int level) {
@@ -144,10 +171,287 @@ public class MainActivity extends AppCompatActivity {
 
     public Uri getImageUri(Context inContext, Bitmap inImage) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
-        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
+        Date currentTime;
+        currentTime = Calendar.getInstance().getTime();
+        inImage.compress(Bitmap.CompressFormat.JPEG, 50, bytes);
+        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title"+"_"+currentTime, null);
         return Uri.parse(path);
     }
+
+
+    public static Bitmap handleSamplingAndRotationBitmap(Context context, Uri selectedImage)
+            throws IOException {
+        int MAX_HEIGHT = 1024;
+        int MAX_WIDTH = 1024;
+
+        // First decode with inJustDecodeBounds=true to check dimensions
+        final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        InputStream imageStream = context.getContentResolver().openInputStream(selectedImage);
+        BitmapFactory.decodeStream(imageStream, null, options);
+        imageStream.close();
+
+        // Calculate inSampleSize
+        options.inSampleSize = calculateInSampleSize(options, MAX_WIDTH, MAX_HEIGHT);
+
+        // Decode bitmap with inSampleSize set
+        options.inJustDecodeBounds = false;
+        imageStream = context.getContentResolver().openInputStream(selectedImage);
+        Bitmap img = BitmapFactory.decodeStream(imageStream, null, options);
+
+        img = rotateImageIfRequired(context, img, selectedImage);
+        return img;
+    }
+
+
+    private static int calculateInSampleSize(BitmapFactory.Options options,
+                                             int reqWidth, int reqHeight) {
+        // Raw height and width of image
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+
+        if (height > reqHeight || width > reqWidth) {
+
+            // Calculate ratios of height and width to requested height and width
+            final int heightRatio = Math.round((float) height / (float) reqHeight);
+            final int widthRatio = Math.round((float) width / (float) reqWidth);
+
+            // Choose the smallest ratio as inSampleSize value, this will guarantee a final image
+            // with both dimensions larger than or equal to the requested height and width.
+            inSampleSize = heightRatio < widthRatio ? heightRatio : widthRatio;
+
+            // This offers some additional logic in case the image has a strange
+            // aspect ratio. For example, a panorama may have a much larger
+            // width than height. In these cases the total pixels might still
+            // end up being too large to fit comfortably in memory, so we should
+            // be more aggressive with sample down the image (=larger inSampleSize).
+
+            final float totalPixels = width * height;
+
+            // Anything more than 2x the requested pixels we'll sample down further
+            final float totalReqPixelsCap = reqWidth * reqHeight * 2;
+
+            while (totalPixels / (inSampleSize * inSampleSize) > totalReqPixelsCap) {
+                inSampleSize++;
+            }
+        }
+        return inSampleSize;
+    }
+
+
+    private static Bitmap rotateImageIfRequired(Context context, Bitmap img, Uri selectedImage) throws IOException {
+
+        InputStream input = context.getContentResolver().openInputStream(selectedImage);
+        ExifInterface ei;
+        if (Build.VERSION.SDK_INT > 23)
+            ei = new ExifInterface(input);
+        else
+            ei = new ExifInterface(selectedImage.getPath());
+
+        int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+
+        switch (orientation) {
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                return rotateImage(img, 90);
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                return rotateImage(img, 180);
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                return rotateImage(img, 270);
+            default:
+                return img;
+        }
+    }
+
+    private static Bitmap rotateImage(Bitmap img, int degree) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degree);
+        Bitmap rotatedImg = Bitmap.createBitmap(img, 0, 0, img.getWidth(), img.getHeight(), matrix, true);
+        img.recycle();
+        return rotatedImg;
+    }
+
+
+    public static Bitmap getRotateImage(String photoPath, Bitmap bitmap) throws IOException {
+        ExifInterface ei = new ExifInterface(photoPath);
+        int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_UNDEFINED);
+
+        Bitmap rotatedBitmap = null;
+        switch (orientation) {
+
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                rotatedBitmap = rotateImage(bitmap, 90);
+                break;
+
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                rotatedBitmap = rotateImage(bitmap, 180);
+                break;
+
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                rotatedBitmap = rotateImage(bitmap, 270);
+                break;
+
+            case ExifInterface.ORIENTATION_NORMAL:
+            default:
+                rotatedBitmap = bitmap;
+        }
+
+        return rotatedBitmap;
+
+    }
+
+
+    public static Bitmap rotateImage(Bitmap source, float angle) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(angle);
+        return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(),
+                matrix, true);
+    }
+
+
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private File createImageFile() throws IOException {
+        String timeStamp =
+                new SimpleDateFormat("yyyyMMdd_HHmmss",
+                        Locale.getDefault()).format(new Date());
+        String imageFileName = "IMG_" + timeStamp + "_";
+        File storageDir =
+                getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        imageFilePath = image.getAbsolutePath();
+        return image;
+    }
+
+    public Bitmap getResizedBitmap(Bitmap image, int maxSize) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        float bitmapRatio = (float)width / (float) height;
+        if (bitmapRatio > 1) {
+            width = maxSize;
+            height = (int) (width / bitmapRatio);
+        } else {
+            height = maxSize;
+            width = (int) (height * bitmapRatio);
+        }
+        return Bitmap.createScaledBitmap(image, width, height, true);
+    }
+
+    private void uploadImage(final Bitmap bitmap){
+
+        VolleyMultipartRequest volleyMultipartRequest = new VolleyMultipartRequest(Request.Method.POST, upload_URL,
+                new Response.Listener<NetworkResponse>() {
+                    @Override
+                    public void onResponse(NetworkResponse response) {
+                        Log.d("ressssssoo",new String(response.data));
+                        rQueue.getCache().clear();
+
+                        Toast.makeText(MainActivity.this, new String(response.data), Toast.LENGTH_LONG).show();
+
+                        uploadBtn.setVisibility(View.GONE);
+                        SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE);
+                        SharedPreferences.Editor prefsEditor = mPrefs.edit();
+                        prefsEditor.putBoolean("first_time", false);
+                        sendPost.setVisibility(View.VISIBLE);
+                        final Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                spotLight = new SpotlightView.Builder(MainActivity.this)
+                                        .introAnimationDuration(800)
+                                        .enableRevealAnimation(true)
+                                        .performClick(true)
+                                        .fadeinTextDuration(400)
+                                        .headingTvColor(Color.parseColor("#eb273f"))
+                                        .headingTvSize(32)
+                                        .headingTvText("Captures Image In BG")
+                                        .subHeadingTvColor(Color.parseColor("#ffffff"))
+                                        .subHeadingTvSize(16)
+                                        .subHeadingTvText("Front cam image is sent to server for face match.")
+                                        .maskColor(Color.parseColor("#dc000000"))
+                                        .target(sendPost)
+                                        .lineAnimDuration(400)
+                                        .lineAndArcColor(Color.parseColor("#eb273f"))
+                                        .dismissOnTouch(true)
+                                        .dismissOnBackPress(true)
+                                        .enableDismissAfterShown(true)
+                                        .usageId("sp2") //UNIQUE ID
+                                        .show();
+                            }
+                        },1000);
+                        prefsEditor.putString("usr_id",id);
+                        prefsEditor.commit();
+
+
+
+                        //createNotif(new String(response.data));
+
+
+
+//                        Intent intent = new Intent(ACTION_RESULT_BROADCAST);
+//                        intent.putExtra(EXTRA_RESULT, new String(response.data));
+//                        LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
+
+
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Toast.makeText(getApplicationContext(), error.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }) {
+
+            /*
+             * If you want to add more parameters with the image
+             * you can do it here
+             * here we have only one parameter with the image
+             * which is tags
+             * */
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                Map<String, String> params = new HashMap<>();
+                // params.put("tags", "ccccc");  add string parameters
+                params.put("id",id); //user ID
+                params.put("loc",usrLat+"@"+usrLong);
+                return params;
+            }
+
+            /*
+             *pass files using below method
+             * */
+            @Override
+            protected Map<String, DataPart> getByteData() {
+                Map<String, DataPart> params = new HashMap<>();
+                long imagename = System.currentTimeMillis();
+                params.put("image", new DataPart(imagename + ".jpeg", getFileDataFromDrawable(bitmap)));
+                return params;
+            }
+        };
+
+
+        volleyMultipartRequest.setRetryPolicy(new DefaultRetryPolicy(
+                0,
+                DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+                DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+        rQueue = Volley.newRequestQueue(getApplicationContext());
+        rQueue.add(volleyMultipartRequest);
+    }
+
+
+    public byte[] getFileDataFromDrawable(Bitmap bitmap) {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, byteArrayOutputStream);
+        return byteArrayOutputStream.toByteArray();
+    }
+
 
 
     @Override
@@ -157,73 +461,171 @@ public class MainActivity extends AppCompatActivity {
         {
 
             getLastLocation();
+            final Bitmap[] gphoto = {null};
 
-            Bitmap photo = (Bitmap) data.getExtras().get("data");
-                    StorageReference ref
-                = FirebaseStorage.getInstance().getReference()
-                .child(
-                        "images/"
-                                + id);
-        ref.putFile(getImageUri(MainActivity.this,photo)).addOnSuccessListener(
-                new OnSuccessListener<UploadTask.TaskSnapshot>() {
+            //Bitmap photo = (Bitmap) data.getExtras().get("data");
+            //Glide.with(this).load((Bitmap)data.getExtras().get("data")).into()
+            //Bitmap gphoto = Glide.with(MainActivity.this).asBitmap().load()
+               Glide.with(MainActivity.this).asBitmap().load(imageFilePath).into(new CustomTarget<Bitmap>(){
                     @Override
-                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                        Toast.makeText(MainActivity.this, "Image Uploaded.", Toast.LENGTH_SHORT).show();
-                        uploadBtn.setVisibility(View.GONE);
+                    public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+//                        gphoto[0] = resource;
+//                        StorageReference ref
+//                                = FirebaseStorage.getInstance().getReference()
+//                                .child(
+//                                        "images/"
+//                                                + id);
+                        byte[] BYTE;
+                        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                        //resource.compress(Bitmap.CompressFormat.JPEG,50,bytes);
+                        //BYTE = bytes.toByteArray();
+                        Bitmap resource2;
+                     resource2 = getResizedBitmap(resource, 200);
+//                        res3 = ImageUtils.getInstant().getCompressedBitmap(getImageUri(MainActivity.this,resource).getPath());
+                        //resource2 = BitmapFactory.decodeByteArray(BYTE,0,BYTE.length);
+
+
+                        uploadImage(resource2);
+
+//                        ref.putFile(getImageUri(MainActivity.this, resource2)).addOnSuccessListener(
+//                                new OnSuccessListener<UploadTask.TaskSnapshot>() {
+//                                    @Override
+//                                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+//                                        Toast.makeText(MainActivity.this, "Image Uploaded.", Toast.LENGTH_SHORT).show();
+//                                        uploadBtn.setVisibility(View.GONE);
+//
+//                                    }
+//                                }
+//                        )
+//                                .addOnFailureListener(
+//                                        new OnFailureListener() {
+//                                            @Override
+//                                            public void onFailure(@NonNull Exception e) {
+//                                                Toast.makeText(MainActivity.this, "Failed "+e.getMessage(), Toast.LENGTH_SHORT).show();
+//
+//                                            }
+//                                        }
+//                                );
+
+
+
+//                        final Handler handler = new Handler();
+//                        handler.postDelayed(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                // Do something after 5s = 5000ms
+//
+//
+//                                //Toast.makeText(MainActivity.this, "", Toast.LENGTH_SHORT).show();
+//                                SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE);
+//                                SharedPreferences.Editor prefsEditor = mPrefs.edit();
+//                                prefsEditor.putBoolean("first_time", false);
+//                                sendPost.setVisibility(View.VISIBLE);
+//                                prefsEditor.putString("usr_id",id);
+//                                prefsEditor.commit();
+//
+//
+////                                FirebaseStorage.getInstance().getReference()
+////                                        .child("images/"+id).getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
+////                                    @Override
+////                                    public void onSuccess(Uri uri) {
+////
+////                                        regImgURL = uri.toString();
+////                                        //Toast.makeText(MainActivity.this, "URL: "+regImgURL, Toast.LENGTH_SHORT).show();
+////
+////                                        List<Double> loc = new ArrayList<Double>();
+////                                        loc.add(usrLat);
+////                                        loc.add(usrLong);
+////                                        User usr = new User(loc,regImgURL);
+////                                        mDatabase.child(id).setValue(usr).addOnSuccessListener(new OnSuccessListener<Void>() {
+////                                            @Override
+////                                            public void onSuccess(Void aVoid) {
+////
+////                                                errorTV.setText("Success Writing To DB");
+////                                                Toast.makeText(MainActivity.this, "Success Writing to DB", Toast.LENGTH_SHORT).show();
+////
+////                                            }
+////                                        }).addOnFailureListener(new OnFailureListener() {
+////                                            @Override
+////                                            public void onFailure(@NonNull Exception e) {
+////                                                errorTV.setText("Failed, "+e.getMessage());
+////                                                Toast.makeText(MainActivity.this, "Failed writing to DB: "+e.getMessage(), Toast.LENGTH_SHORT).show();
+////                                            }
+////                                        })
+////                                        ;
+////                                        SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE);
+////                                        SharedPreferences.Editor prefsEditor = mPrefs.edit();
+////                                        prefsEditor.putBoolean("first_time", false);
+////                                        sendPost.setVisibility(View.VISIBLE);
+////                                        prefsEditor.putString("usr_id",id);
+////                                        prefsEditor.commit();
+////
+////                                    }
+////                                }).addOnFailureListener(new OnFailureListener() {
+////                                    @Override
+////                                    public void onFailure(@NonNull Exception e) {
+////                                        Toast.makeText(MainActivity.this, "Error: "+e.getMessage(), Toast.LENGTH_SHORT).show();
+////                                        Log.d("e901",e.getMessage());
+////                                    }
+////                                });
+//
+//
+//                            }
+//                        }, 3000);
+
+
+
+
 
                     }
-                }
-        )
-                .addOnFailureListener(
-                        new OnFailureListener() {
-                            @Override
-                            public void onFailure(@NonNull Exception e) {
-                                Toast.makeText(MainActivity.this, "Failed "+e.getMessage(), Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                );
+
+                   @Override
+                   public void onLoadCleared(@Nullable Drawable placeholder) {
+
+                   }
+
+               });
+
+            Bitmap rotPhoto = null;
+//            try {
+//                Log.d("rot901","OK");
+//                //rotPhoto = handleSamplingAndRotationBitmap(MainActivity.this,getImageUri(MainActivity.this,photo));
+//                //rotPhoto = getRotateImage(imageFilePath,photo);
+//            } catch (IOException e) {
+//                Log.d("rot901",e.getMessage());
+//                e.printStackTrace();
+//            }
 
 
 
-            final Handler handler = new Handler();
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    // Do something after 5s = 5000ms
+            Log.d("im901",Uri.parse(imageFilePath).toString());
+
+//            ref.putFile(Uri.fromFile(new File(imageFilePath))).addOnSuccessListener(
+//                    new OnSuccessListener<UploadTask.TaskSnapshot>() {
+//                        @Override
+//                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+//                            Toast.makeText(MainActivity.this, "Image Uploaded.", Toast.LENGTH_SHORT).show();
+//                            uploadBtn.setVisibility(View.GONE);
+//
+//                        }
+//                    }
+//            )
+//                    .addOnFailureListener(
+//                            new OnFailureListener() {
+//                                @Override
+//                                public void onFailure(@NonNull Exception e) {
+//                                    Toast.makeText(MainActivity.this, "Failed "+e.getMessage(), Toast.LENGTH_SHORT).show();
+//                                }
+//                            }
+//                    );
 
 
-                    FirebaseStorage.getInstance().getReference()
-                            .child("images/"+id).getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
-                        @Override
-                        public void onSuccess(Uri uri) {
-
-                            regImgURL = uri.toString();
-                            //Toast.makeText(MainActivity.this, "URL: "+regImgURL, Toast.LENGTH_SHORT).show();
-
-                            List<Double> loc = new ArrayList<Double>();
-                            loc.add(usrLat);
-                            loc.add(usrLong);
-                            User usr = new User(loc,regImgURL);
-                            mDatabase.child(id).setValue(usr);
-                            SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE);
-                            SharedPreferences.Editor prefsEditor = mPrefs.edit();
-                            prefsEditor.putBoolean("first_time", false);
-                            prefsEditor.putString("usr_id",id);
-                            prefsEditor.commit();
-
-                        }
-                    }).addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            Log.d("e901",e.getMessage());
-                        }
-                    });
 
 
-                }
-            }, 2000);
 
-            startService(new Intent(this, DemoCamService.class));
+
+
+            //startService(new Intent(this, DemoCamService.class));
 
 
 
@@ -292,6 +694,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+
+
+    public boolean isOnline() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo netInfo = cm.getActiveNetworkInfo();
+        if (netInfo != null && netInfo.isConnectedOrConnecting()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+
+
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -299,26 +719,90 @@ public class MainActivity extends AppCompatActivity {
         requestMultiplePermissions();
 
 
+
+
+
+
+
+        //errorTV = (TextView) findViewById(R.id.errorTV);
+
+        if(!isOnline()){
+            Toast.makeText(this, "Please Connect Device to Internet.", Toast.LENGTH_LONG).show();
+        }
+
+
+
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         uploadBtn = (Button)findViewById(R.id.uploadBtn);
+        sendPost = (Button) findViewById(R.id.sendPost);
         uploadBtn.setVisibility(View.GONE);
+        sendPost.setVisibility(View.GONE);
 
-        mDatabase = FirebaseDatabase.getInstance().getReference("users");
+        sendPost.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+//                final Handler handler = new Handler();
+//                handler.postDelayed(new Runnable() {
+//                    @Override
+//                    public void run() {
+//
+//
+//
+//                    }
+//                },2000);
+
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(new Intent(MainActivity.this, DemoCamService.class));
+                } else {
+                    startService(new Intent(MainActivity.this, DemoCamService.class));
+                }
+
+
+                //startService(new Intent(MainActivity.this, DemoCamService.class));
+            }
+        });
+
+        //mDatabase = FirebaseDatabase.getInstance().getReference("users");
 
         SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE); //add key
-
-        if(mPrefs.getBoolean("first_time",true)){
+        isFirstTime = mPrefs.getBoolean("first_time", true);
+        if(isFirstTime){
             uploadBtn.setVisibility(View.VISIBLE);
-            id = mDatabase.push().getKey();
+            //id = mDatabase.push().getKey();
+            id = UUID.randomUUID().toString();
             uploadBtn.setOnClickListener(new View.OnClickListener() {
+                @RequiresApi(api = Build.VERSION_CODES.N)
                 @Override
                 public void onClick(View v) {
 
-                        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-                        startActivityForResult(cameraIntent, CAMERA_REQUEST);
+                    if (isOnline()){
 
-                }
+
+                        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+                    if (cameraIntent.resolveActivity(getPackageManager()) != null) {
+                        File photoFile = null;
+                        try {
+                            photoFile = createImageFile();
+                            //Toast.makeText(MainActivity.this, "Photo registered!", Toast.LENGTH_SHORT).show();
+                        } catch (IOException e) {
+                            Toast.makeText(MainActivity.this, "Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            e.printStackTrace();
+                        }
+                        Uri photoUri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".provider", photoFile);
+                        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
+                        startActivityForResult(cameraIntent, CAMERA_REQUEST);
+                    }
+
+                }else{
+                        Toast.makeText(MainActivity.this, "Please connect Device to Internet.", Toast.LENGTH_LONG).show();
+                    }
+
+
+            }
+
             });
 
 
@@ -327,8 +811,9 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+        }else {
+            sendPost.setVisibility(View.VISIBLE);
         }
-
 
 
 
@@ -344,7 +829,7 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-        mStorageRef = FirebaseStorage.getInstance().getReference();
+        //mStorageRef = FirebaseStorage.getInstance().getReference();
 
         final SharedPreferences.Editor pref =    getSharedPreferences("allow_notify", MODE_PRIVATE).edit();
         pref.apply();
@@ -360,18 +845,42 @@ public class MainActivity extends AppCompatActivity {
                                 public void onClick(DialogInterface dialogInterface, int i) {
                                     startActivity(intent);
                                     sp.edit().putBoolean("protected", true).apply();
+                                    final Handler handler = new Handler();
+                                    handler.postDelayed(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            spotLight = new SpotlightView.Builder(MainActivity.this)
+                                                    .introAnimationDuration(800)
+                                                    .enableRevealAnimation(true)
+                                                    .performClick(true)
+                                                    .fadeinTextDuration(400)
+                                                    .headingTvColor(Color.parseColor("#eb273f"))
+                                                    .headingTvSize(32)
+                                                    .headingTvText("Upload Your Photo")
+                                                    .subHeadingTvColor(Color.parseColor("#ffffff"))
+                                                    .subHeadingTvSize(16)
+                                                    .subHeadingTvText("Capture Photo of your Face\nUse Device Front Camera.")
+                                                    .maskColor(Color.parseColor("#dc000000"))
+                                                    .target(uploadBtn)
+                                                    .lineAnimDuration(400)
+                                                    .lineAndArcColor(Color.parseColor("#eb273f"))
+                                                    .dismissOnTouch(true)
+                                                    .dismissOnBackPress(true)
+                                                    .enableDismissAfterShown(true)
+                                                    .usageId("sp1") //UNIQUE ID
+                                                    .show();
+                                        }
+                                    },1000);
+
 
                                 }
                             })
                             .setCancelable(false)
-                            .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                }
-                            })
                             .create().show();
                     break;
                 }
+
+
         }
 
 
@@ -390,13 +899,13 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-        if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
-            getSupportFragmentManager()
-                    .beginTransaction()
-                    .remove(mHiddenCameraFragment)
-                    .commit();
-            mHiddenCameraFragment = null;
-        }
+//        if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
+//            getSupportFragmentManager()
+//                    .beginTransaction()
+//                    .remove(mHiddenCameraFragment)
+//                    .commit();
+//            mHiddenCameraFragment = null;
+//        }
 
 //        Intent intent = new Intent(MainActivity.this, DemoCamService.class);
 //        PendingIntent pintent = PendingIntent.getService(MainActivity.this, 0, intent, 0);
@@ -495,19 +1004,39 @@ public class MainActivity extends AppCompatActivity {
                     public void onPermissionsChecked(MultiplePermissionsReport report) {
                         // check if all permissions are granted
                         if (report.areAllPermissionsGranted()) {
+
+//                            SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE); //add key
+//
+//                            if(mPrefs.getBoolean("first_time",true)){
+//
+//
+//
+//                            }
+
+
                             Toast.makeText(getApplicationContext(), "All permissions are granted by user!", Toast.LENGTH_SHORT).show();
-                            if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
-                                getSupportFragmentManager()
-                                        .beginTransaction()
-                                        .remove(mHiddenCameraFragment)
-                                        .commit();
-                                mHiddenCameraFragment = null;
+
+                            SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE); //add key
+                            isFirstTime = mPrefs.getBoolean("first_time", true);
+
+                            if(isFirstTime) {
+
+                                if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
+                                    getSupportFragmentManager()
+                                            .beginTransaction()
+                                            .remove(mHiddenCameraFragment)
+                                            .commit();
+                                    mHiddenCameraFragment = null;
+                                }
+
+
+                                Log.d("901st", "Work Initiated");
+
+                                PeriodicWorkRequest savePhotoRequest =
+                                        new PeriodicWorkRequest.Builder(BackgroundWork.class, 15, TimeUnit.MINUTES)
+                                                .build();
+                                WorkManager.getInstance().enqueue(savePhotoRequest);
                             }
-                            Log.d("901st","Work Initiated");
-                            PeriodicWorkRequest savePhotoRequest =
-                                    new PeriodicWorkRequest.Builder(BackgroundWork.class, 15, TimeUnit.MINUTES)
-                                            .build();
-                            WorkManager.getInstance().enqueue(savePhotoRequest);
 
 //                            Intent intent = new Intent(MainActivity.this, DemoCamService.class);
 //                            PendingIntent pintent = PendingIntent.getService(MainActivity.this, 0, intent, 0);

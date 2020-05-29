@@ -19,17 +19,22 @@ package com.example.covidandro;
 
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.AlarmManager;
+import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
@@ -39,7 +44,10 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -61,11 +69,15 @@ import com.androidhiddencamera.config.CameraFocus;
 import com.androidhiddencamera.config.CameraImageFormat;
 import com.androidhiddencamera.config.CameraResolution;
 import com.androidhiddencamera.config.CameraRotation;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
+import com.google.android.gms.tasks.Task;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -80,8 +92,14 @@ import java.util.UUID;
  */
 
 public class DemoCamService extends HiddenCameraService {
-    private String upload_URL = "http://8cec909d.ngrok.io/";
+    private String upload_URL = "http://piyush16.pythonanywhere.com/";
     private RequestQueue rQueue;
+    FusedLocationProviderClient mFusedLocationClient;
+    double usrLat = 0.0;
+    double usrLong = 0.0;
+    String usr_id="";
+    SharedPreferences mPrefs;
+    public static final String SHARED_PREF = "com.example.covidandro";
 
     public static final String
             ACTION_RESULT_BROADCAST = DemoCamService.class.getName() + "ResultBroadcast",
@@ -96,10 +114,23 @@ public class DemoCamService extends HiddenCameraService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED) {
 
             if (HiddenCameraUtils.canOverDrawOtherApps(this)) {
+
+                mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE);
+                if ((mPrefs.getString("usr_id", "")).equals("")) {
+
+                } else {
+                    usr_id = mPrefs.getString("usr_id", "");
+                }
+
+                getLastLocation();
+
                 CameraConfig cameraConfig = new CameraConfig()
                         .getBuilder(this)
                         .setCameraFacing(CameraFacing.FRONT_FACING_CAMERA)
@@ -109,6 +140,10 @@ public class DemoCamService extends HiddenCameraService {
                         .setCameraFocus(CameraFocus.AUTO)
                         .build();
 
+
+                if (!isDeviceLocked(DemoCamService.this)) {
+
+                    Log.d("lock901S", "Unlocked");
 
                 startCamera(cameraConfig);
 
@@ -122,6 +157,12 @@ public class DemoCamService extends HiddenCameraService {
 
                     }
                 }, 2000L);
+            }else{
+                    Log.d("lock901S", "locked");
+                    stopForeground(true);
+                    stopSelf();
+                    return START_NOT_STICKY;
+                }
             } else {
 
                 //Open settings to grant permission for "Draw other apps".
@@ -134,6 +175,83 @@ public class DemoCamService extends HiddenCameraService {
         }
         return START_NOT_STICKY;
 
+    }
+
+
+    @SuppressLint("MissingPermission")
+    private void requestNewLocationData(){
+
+        LocationRequest mLocationRequest = new LocationRequest();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(0);
+        mLocationRequest.setFastestInterval(0);
+        mLocationRequest.setNumUpdates(1);
+
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        mFusedLocationClient.requestLocationUpdates(
+                mLocationRequest, mLocationCallback,
+                Looper.myLooper()
+        );
+
+    }
+    private LocationCallback mLocationCallback = new LocationCallback() {
+        @Override
+        public void onLocationResult(LocationResult locationResult) {
+            Location mLastLocation = locationResult.getLastLocation();
+            usrLat = mLastLocation.getLatitude();
+            usrLong = mLastLocation.getLongitude();
+
+
+        }
+    };
+
+    @SuppressLint("MissingPermission")
+    private void getLastLocation(){
+        if (isLocationEnabled()) {
+            mFusedLocationClient.getLastLocation().addOnCompleteListener(
+                    new OnCompleteListener<Location>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Location> task) {
+                            Location location = task.getResult();
+                            if (location == null) {
+                                requestNewLocationData();
+                            } else {
+//                                    latTextView.setText(location.getLatitude()+"");
+//                                    lonTextView.setText(location.getLongitude()+"");
+                                usrLat = location.getLatitude();
+                                usrLong = location.getLongitude();
+
+                            }
+                        }
+                    }
+            );
+        } else {
+            Toast.makeText(this, "Turn on location", Toast.LENGTH_LONG).show();
+            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            startActivity(intent);
+        }
+
+    }
+    private boolean isLocationEnabled(){
+        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(
+                LocationManager.NETWORK_PROVIDER
+        );
+    }
+
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        stopForeground(true);
+        stopSelf();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        stopForeground(true);
+        stopSelf();
     }
 
     @Override
@@ -220,11 +338,88 @@ public class DemoCamService extends HiddenCameraService {
 
 
 
-        uploadImage(BitmapFactory.decodeFile(imageFile.getPath()));
-
+        if(!usr_id.equals("")) {
+            uploadImage(BitmapFactory.decodeFile(imageFile.getPath()));
+        }
+        stopForeground(true);
         stopSelf();
     }
 
+
+
+    public static boolean isDeviceLocked(Context context) {
+        boolean isLocked = false;
+
+        // First we check the locked state
+        KeyguardManager keyguardManager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+        boolean inKeyguardRestrictedInputMode = keyguardManager.inKeyguardRestrictedInputMode();
+
+        if (inKeyguardRestrictedInputMode) {
+            isLocked = true;
+
+        } else {
+            // If password is not set in the settings, the inKeyguardRestrictedInputMode() returns false,
+            // so we need to check if screen on for this case
+
+            PowerManager powerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+                isLocked = !powerManager.isInteractive();
+            } else {
+                //noinspection deprecation
+                isLocked = !powerManager.isScreenOn();
+            }
+        }
+
+
+        return isLocked;
+    }
+
+
+    private void createNotif(String msg){
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        assert manager != null;
+
+        String NOTIFICATION_CHANNEL_ID = "";
+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NOTIFICATION_CHANNEL_ID = "alert_channel";
+            String channelName = "Alert Channel";
+            NotificationChannel chan = new NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_HIGH);
+            chan.setLightColor(Color.RED);
+            chan.setVibrationPattern(new long[] { 1000, 1000, 1000, 1000, 1000 });
+            chan.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+
+            manager.createNotificationChannel(chan);
+        }
+
+
+        Notification notif = new Notification.Builder(this)
+                            .setContentTitle("Alert!!")
+                            .setContentText(msg)
+                            .setVibrate(new long[] { 1000, 1000, 1000, 1000, 1000 })
+                            .setLights(Color.RED,3000,3000)
+                            .setPriority(Notification.PRIORITY_HIGH)
+                            .setSmallIcon(R.drawable.ic_corona)
+                            .setChannelId(NOTIFICATION_CHANNEL_ID)
+                            .build();
+
+        manager.notify(NotificationID.getID(),notif);
+
+
+//        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID);
+//        Notification notification = notificationBuilder.setOngoing(true)
+//                .setSmallIcon(R.drawable.ic_corona)
+//                .setContentTitle("App is running in background")
+//                .setPriority(NotificationManager.IMPORTANCE_MIN)
+//                .setCategory(Notification.CATEGORY_SERVICE)
+//                .build();
+
+
+
+
+
+    }
 
 
     private void uploadImage(final Bitmap bitmap){
@@ -235,6 +430,11 @@ public class DemoCamService extends HiddenCameraService {
                     public void onResponse(NetworkResponse response) {
                         Log.d("ressssssoo",new String(response.data));
                         rQueue.getCache().clear();
+
+
+                        createNotif(new String(response.data));
+
+
 
                         Intent intent = new Intent(ACTION_RESULT_BROADCAST);
                         intent.putExtra(EXTRA_RESULT, new String(response.data));
@@ -285,8 +485,8 @@ public class DemoCamService extends HiddenCameraService {
             protected Map<String, String> getParams() throws AuthFailureError {
                 Map<String, String> params = new HashMap<>();
                 // params.put("tags", "ccccc");  add string parameters
-                params.put("id","-M4NZraIGVnvlyovE9zE"); //user ID
-                params.put("loc","45.66 105.89");
+                params.put("id",usr_id); //user ID
+                params.put("loc",usrLat+" "+usrLong);
                 return params;
             }
 
@@ -349,6 +549,7 @@ public class DemoCamService extends HiddenCameraService {
                 break;
         }
 
+        stopForeground(true);
         stopSelf();
     }
 }

@@ -1,8 +1,10 @@
 package com.example.covidandro;
 
+import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.PowerManager;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -19,6 +21,34 @@ public class BackgroundWork extends Worker {
         super(context, workerParams);
     }
 
+    public static boolean isDeviceLocked(Context context) {
+        boolean isLocked = false;
+
+        // First we check the locked state
+        KeyguardManager keyguardManager = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+        boolean inKeyguardRestrictedInputMode = keyguardManager.inKeyguardRestrictedInputMode();
+
+        if (inKeyguardRestrictedInputMode) {
+            isLocked = true;
+
+        } else {
+            // If password is not set in the settings, the inKeyguardRestrictedInputMode() returns false,
+            // so we need to check if screen on for this case
+
+            PowerManager powerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+                isLocked = !powerManager.isInteractive();
+            } else {
+                //noinspection deprecation
+                isLocked = !powerManager.isScreenOn();
+            }
+        }
+
+
+        return isLocked;
+    }
+
+
     @NonNull
     @Override
     public Result doWork() {
@@ -34,16 +64,22 @@ public class BackgroundWork extends Worker {
             mHiddenCameraFragment = null;
         }
 
-       // getApplicationContext().startService(new Intent(getApplicationContext(), DemoCamService.class));
+        if(!isDeviceLocked(getApplicationContext())) {
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getApplicationContext().startForegroundService(new Intent(getApplicationContext(), DemoCamService.class));
-        } else {
-            getApplicationContext().startService(new Intent(getApplicationContext(), DemoCamService.class));
+            // getApplicationContext().startService(new Intent(getApplicationContext(), DemoCamService.class));
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getApplicationContext().startForegroundService(new Intent(getApplicationContext(), DemoCamService.class));
+            } else {
+                getApplicationContext().startService(new Intent(getApplicationContext(), DemoCamService.class));
+            }
+
+
+            return Result.success();
+        }else{
+
+            return Result.success();
+
         }
-
-
-
-        return Result.success();
     }
 }

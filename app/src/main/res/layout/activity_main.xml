@@ -20,6 +20,15 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:text="Upload to Database" />
+        android:text="Upload" />
+
+    <Button
+        android:id="@+id/sendPost"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/uploadBtn"
+        android:layout_marginTop="32dp"
+        android:layout_centerHorizontal="true"
+        android:text="Send Post" />
 
 </RelativeLayout>
