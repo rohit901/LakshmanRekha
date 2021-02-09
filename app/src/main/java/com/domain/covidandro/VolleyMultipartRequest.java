@@ -1,4 +1,4 @@
-package com.example.covidandro;
+package com.domain.covidandro;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.NetworkResponse;

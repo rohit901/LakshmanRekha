@@ -1,13 +1,10 @@
-package com.example.covidandro;
+package com.domain.covidandro;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -15,9 +12,6 @@ import androidx.work.WorkManager;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.AlarmManager;
-import android.app.KeyguardManager;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -43,10 +37,10 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -60,18 +54,16 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
-import com.androidhiddencamera.HiddenCameraFragment;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
+import com.domain.covidandro.R;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.karumi.dexter.Dexter;
 import com.karumi.dexter.MultiplePermissionsReport;
@@ -83,18 +75,10 @@ import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
 import com.wooplr.spotlight.SpotlightView;
 
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Array;
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -102,14 +86,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-
-import static java.security.AccessController.getContext;
 
 public class MainActivity extends AppCompatActivity {
 
-    private HiddenCameraFragment mHiddenCameraFragment;
+    //private HiddenCameraFragment mHiddenCameraFragment;
     TextView alarmTV;
     Button uploadBtn;
     Boolean isFirstTime;
@@ -128,8 +109,9 @@ public class MainActivity extends AppCompatActivity {
 
 
     private static final int PERMISSION_REQUEST_CODE = 200;
+    public static final int APP_PERMISSION_REQUEST = 100;
     private static final int CAMERA_REQUEST = 100;
-    public static final String SHARED_PREF = "com.example.covidandro";
+    public static final String SHARED_PREF = "com.domain.covidandro";
     private static final Intent[] POWERMANAGER_INTENTS = {
             new Intent().setComponent(new ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
             new Intent().setComponent(new ComponentName("com.letv.android.letvsafe", "com.letv.android.letvsafe.AutobootManageActivity")),
@@ -359,7 +341,15 @@ public class MainActivity extends AppCompatActivity {
                         SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE);
                         SharedPreferences.Editor prefsEditor = mPrefs.edit();
                         prefsEditor.putBoolean("first_time", false);
-                        sendPost.setVisibility(View.VISIBLE);
+
+
+
+
+
+
+
+
+                        //sendPost.setVisibility(View.VISIBLE);
                         final Handler handler = new Handler();
                         handler.postDelayed(new Runnable() {
                             @Override
@@ -376,7 +366,7 @@ public class MainActivity extends AppCompatActivity {
                                         .subHeadingTvSize(16)
                                         .subHeadingTvText("Front cam image is sent to server for face match.")
                                         .maskColor(Color.parseColor("#dc000000"))
-                                        .target(sendPost)
+                                        .target(uploadBtn)
                                         .lineAnimDuration(400)
                                         .lineAndArcColor(Color.parseColor("#eb273f"))
                                         .dismissOnTouch(true)
@@ -388,6 +378,14 @@ public class MainActivity extends AppCompatActivity {
                         },1000);
                         prefsEditor.putString("usr_id",id);
                         prefsEditor.commit();
+
+                        Log.d("901st", "Work Initiated");
+
+                        PeriodicWorkRequest savePhotoRequest =
+                                new PeriodicWorkRequest.Builder(BackgroundWork.class, 15, TimeUnit.MINUTES)
+                                        .build();
+                        WorkManager.getInstance().enqueue(savePhotoRequest);
+
 
 
 
@@ -421,6 +419,13 @@ public class MainActivity extends AppCompatActivity {
                 // params.put("tags", "ccccc");  add string parameters
                 params.put("id",id); //user ID
                 params.put("loc",usrLat+"@"+usrLong);
+                params.put("age", "20");
+                params.put("dob", "01/01/1990");
+                params.put("pin", "410210");
+                params.put("name", "rohit");
+                params.put("period", "14");
+                params.put("startdate", "02/06/2020");
+
                 return params;
             }
 
@@ -716,6 +721,13 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            startActivityForResult(intent, APP_PERMISSION_REQUEST);
+        }
+
         requestMultiplePermissions();
 
 
@@ -735,9 +747,10 @@ public class MainActivity extends AppCompatActivity {
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         uploadBtn = (Button)findViewById(R.id.uploadBtn);
-        sendPost = (Button) findViewById(R.id.sendPost);
         uploadBtn.setVisibility(View.GONE);
+        sendPost = (Button) findViewById(R.id.sendPost_main);
         sendPost.setVisibility(View.GONE);
+
 
         sendPost.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -754,11 +767,13 @@ public class MainActivity extends AppCompatActivity {
 //                },2000);
 
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(new Intent(MainActivity.this, DemoCamService.class));
-                } else {
-                    startService(new Intent(MainActivity.this, DemoCamService.class));
-                }
+//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//                    startForegroundService(new Intent(MainActivity.this, Camera2Service.class));
+//                } else {
+//                    startService(new Intent(MainActivity.this, Camera2Service.class));
+//                }
+
+                startService(new Intent(MainActivity.this, Camera2Service.class));
 
 
                 //startService(new Intent(MainActivity.this, DemoCamService.class));
@@ -774,31 +789,35 @@ public class MainActivity extends AppCompatActivity {
             //id = mDatabase.push().getKey();
             id = UUID.randomUUID().toString();
             uploadBtn.setOnClickListener(new View.OnClickListener() {
-                @RequiresApi(api = Build.VERSION_CODES.N)
                 @Override
                 public void onClick(View v) {
 
-                    if (isOnline()){
+//                    if (isOnline()){
+//
+//
+//                        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+//                    if (cameraIntent.resolveActivity(getPackageManager()) != null) {
+//                        File photoFile = null;
+//                        try {
+//                            photoFile = createImageFile();
+//                            //Toast.makeText(MainActivity.this, "Photo registered!", Toast.LENGTH_SHORT).show();
+//                        } catch (IOException e) {
+//                            Toast.makeText(MainActivity.this, "Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+//                            e.printStackTrace();
+//                        }
+//                        Uri photoUri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".provider", photoFile);
+//                        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
+//                        startActivityForResult(cameraIntent, CAMERA_REQUEST);
+//                    }
+//
+//                }else{
+//                        Toast.makeText(MainActivity.this, "Please connect Device to Internet.", Toast.LENGTH_LONG).show();
+//                    }
 
 
-                        Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
-                    if (cameraIntent.resolveActivity(getPackageManager()) != null) {
-                        File photoFile = null;
-                        try {
-                            photoFile = createImageFile();
-                            //Toast.makeText(MainActivity.this, "Photo registered!", Toast.LENGTH_SHORT).show();
-                        } catch (IOException e) {
-                            Toast.makeText(MainActivity.this, "Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                            e.printStackTrace();
-                        }
-                        Uri photoUri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".provider", photoFile);
-                        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
-                        startActivityForResult(cameraIntent, CAMERA_REQUEST);
-                    }
+                    Intent intent = new Intent(MainActivity.this, RegisterActivity.class);
+                    startActivity(intent);
 
-                }else{
-                        Toast.makeText(MainActivity.this, "Please connect Device to Internet.", Toast.LENGTH_LONG).show();
-                    }
 
 
             }
@@ -822,9 +841,9 @@ public class MainActivity extends AppCompatActivity {
                 new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context context, Intent intent) {
-                        alarmTV.setText(intent.getStringExtra(DemoCamService.EXTRA_RESULT));
+                        alarmTV.setText(intent.getStringExtra(Camera2Service.EXTRA_RESULT));
                     }
-                }, new IntentFilter(DemoCamService.ACTION_RESULT_BROADCAST)
+                }, new IntentFilter(Camera2Service.ACTION_RESULT_BROADCAST)
         );
 
 
@@ -838,7 +857,7 @@ public class MainActivity extends AppCompatActivity {
             for (final Intent intent : POWERMANAGER_INTENTS)
                 if (getPackageManager().resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
 
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    AlertDialog.Builder builder = new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.LLDialog));
                     builder.setTitle("Alert").setMessage("Keep App to Protected App List?")
                             .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
                                 @Override
@@ -856,10 +875,10 @@ public class MainActivity extends AppCompatActivity {
                                                     .fadeinTextDuration(400)
                                                     .headingTvColor(Color.parseColor("#eb273f"))
                                                     .headingTvSize(32)
-                                                    .headingTvText("Upload Your Photo")
+                                                    .headingTvText("Register")
                                                     .subHeadingTvColor(Color.parseColor("#ffffff"))
                                                     .subHeadingTvSize(16)
-                                                    .subHeadingTvText("Capture Photo of your Face\nUse Device Front Camera.")
+                                                    .subHeadingTvText("Enter your details &\nCapture Your Photo.")
                                                     .maskColor(Color.parseColor("#dc000000"))
                                                     .target(uploadBtn)
                                                     .lineAnimDuration(400)
@@ -968,18 +987,19 @@ public class MainActivity extends AppCompatActivity {
 //                break;
 //        }
 //    }
-    @Override
-    public void onBackPressed() {
-        if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
-            getSupportFragmentManager()
-                    .beginTransaction()
-                    .remove(mHiddenCameraFragment)
-                    .commit();
-            mHiddenCameraFragment = null;
-        }else { //Kill the activity
-            super.onBackPressed();
-        }
-    }
+//    @Override
+//    public void onBackPressed() {
+//        Log.d("back901", "BACK PRESS!");
+//        if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
+//            getSupportFragmentManager()
+//                    .beginTransaction()
+//                    .remove(mHiddenCameraFragment)
+//                    .commit();
+//            mHiddenCameraFragment = null;
+//        }else { //Kill the activity
+//            super.onBackPressed();
+//        }
+//    }
 
 
 
@@ -1016,27 +1036,27 @@ public class MainActivity extends AppCompatActivity {
 
                             Toast.makeText(getApplicationContext(), "All permissions are granted by user!", Toast.LENGTH_SHORT).show();
 
-                            SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE); //add key
-                            isFirstTime = mPrefs.getBoolean("first_time", true);
-
-                            if(isFirstTime) {
-
-                                if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
-                                    getSupportFragmentManager()
-                                            .beginTransaction()
-                                            .remove(mHiddenCameraFragment)
-                                            .commit();
-                                    mHiddenCameraFragment = null;
-                                }
-
-
-                                Log.d("901st", "Work Initiated");
-
-                                PeriodicWorkRequest savePhotoRequest =
-                                        new PeriodicWorkRequest.Builder(BackgroundWork.class, 15, TimeUnit.MINUTES)
-                                                .build();
-                                WorkManager.getInstance().enqueue(savePhotoRequest);
-                            }
+//                            SharedPreferences mPrefs = getSharedPreferences(SHARED_PREF, MODE_PRIVATE); //add key
+//                            isFirstTime = mPrefs.getBoolean("first_time", true);
+//
+//                            if(isFirstTime) {
+//
+//                                if (mHiddenCameraFragment != null) {    //Remove fragment from container if present
+//                                    getSupportFragmentManager()
+//                                            .beginTransaction()
+//                                            .remove(mHiddenCameraFragment)
+//                                            .commit();
+//                                    mHiddenCameraFragment = null;
+//                                }
+//
+//
+//                                Log.d("901st", "Work Initiated");
+//
+//                                PeriodicWorkRequest savePhotoRequest =
+//                                        new PeriodicWorkRequest.Builder(BackgroundWork.class, 15, TimeUnit.MINUTES)
+//                                                .build();
+//                                WorkManager.getInstance().enqueue(savePhotoRequest);
+//                            }
 
 //                            Intent intent = new Intent(MainActivity.this, DemoCamService.class);
 //                            PendingIntent pintent = PendingIntent.getService(MainActivity.this, 0, intent, 0);

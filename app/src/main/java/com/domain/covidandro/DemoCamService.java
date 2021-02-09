@@ -1,4 +1,4 @@
-package com.example.covidandro;
+package com.domain.covidandro;
 
 /*
  * Copyright 2016 Keval Patel.
@@ -20,12 +20,10 @@ package com.example.covidandro;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.AlarmManager;
 import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -35,7 +33,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import androidx.annotation.NonNull;
@@ -46,10 +43,8 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import android.os.Looper;
 import android.os.PowerManager;
-import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.AuthFailureError;
@@ -69,21 +64,19 @@ import com.androidhiddencamera.config.CameraFocus;
 import com.androidhiddencamera.config.CameraImageFormat;
 import com.androidhiddencamera.config.CameraResolution;
 import com.androidhiddencamera.config.CameraRotation;
+import com.domain.covidandro.R;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Created by Keval on 11-Nov-16.
@@ -99,11 +92,12 @@ public class DemoCamService extends HiddenCameraService {
     double usrLong = 0.0;
     String usr_id="";
     SharedPreferences mPrefs;
-    public static final String SHARED_PREF = "com.example.covidandro";
+    public static final String SHARED_PREF = "com.domain.covidandro";
 
     public static final String
             ACTION_RESULT_BROADCAST = DemoCamService.class.getName() + "ResultBroadcast",
             EXTRA_RESULT = "extra_result";
+
 
 
     @Nullable
@@ -263,7 +257,7 @@ public class DemoCamService extends HiddenCameraService {
             startForeground(1, new Notification());
     }
     private void startMyOwnForeground(){
-        String NOTIFICATION_CHANNEL_ID = "com.example.covidandro";
+        String NOTIFICATION_CHANNEL_ID = "com.domain.covidandro";
         String channelName = "My Background Service";
         NotificationChannel chan = new NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_NONE);
         chan.setLightColor(Color.BLUE);

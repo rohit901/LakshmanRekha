@@ -1,4 +1,4 @@
-package com.example.covidandro;
+package com.domain.covidandro;
 
 import java.util.concurrent.atomic.AtomicInteger;
 

@@ -1,4 +1,4 @@
-package com.example.covidandro;
+package com.domain.covidandro;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

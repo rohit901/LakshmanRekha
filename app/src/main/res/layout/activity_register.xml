@@ -1,9 +1,174 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".RegisterActivity">
+    android:background="@color/colorPrimary"
+    tools:context="com.domain.covidandro.RegisterActivity">
+
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorPrimary"
+        android:minHeight="?attr/actionBarSize"
+        android:theme="?attr/actionBarTheme"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" >
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="LakshmanRekha"
+            android:textAlignment="center"
+            android:textStyle="bold"
+            android:textSize="25sp"
+            android:textColor="@android:color/white"/>
+    </androidx.appcompat.widget.Toolbar>
+
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="40dp"
+        android:layout_marginEnd="8dp"
+        android:fontFamily="@font/devonshire"
+        android:text="Registration"
+        android:textAlignment="center"
+        android:textColor="@android:color/white"
+        android:textSize="35sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/toolbar" />
+
+    <EditText
+        android:id="@+id/name_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="35dp"
+        android:layout_marginTop="80dp"
+        android:layout_marginEnd="35dp"
+        android:background="@drawable/edittext_background"
+        android:drawableLeft="@drawable/ic_baseline_account_circle_24"
+        android:drawablePadding="25dp"
+        android:drawableTint="#B8B8B8"
+        android:hint="Name"
+        android:inputType="textPersonName"
+        android:padding="12dp"
+        android:textColor="#E9E9E9"
+        android:textColorHint="#B8B8B8"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView" />
+
+    <EditText
+        android:id="@+id/dob_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="35dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="35dp"
+        android:background="@drawable/edittext_background"
+        android:drawableLeft="@drawable/ic_baseline_date_range_24"
+        android:drawablePadding="25dp"
+        android:drawableTint="#B8B8B8"
+        android:clickable="true"
+        android:focusable="false"
+        android:hint="Date of Birth"
+        android:inputType="date"
+        android:padding="12dp"
+        android:textColor="#E9E9E9"
+        android:textColorHint="#B8B8B8"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/name_box" />
+
+    <EditText
+        android:id="@+id/pin_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="35dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="35dp"
+        android:background="@drawable/edittext_background"
+        android:drawableLeft="@drawable/ic_baseline_location_on_24"
+        android:drawablePadding="25dp"
+        android:drawableTint="#B8B8B8"
+        android:hint="Pin Code"
+        android:inputType="number"
+        android:padding="12dp"
+        android:textColor="#E9E9E9"
+        android:textColorHint="#B8B8B8"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/dob_box" />
+
+
+    <EditText
+        android:id="@+id/period_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="35dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="35dp"
+        android:background="@drawable/edittext_background"
+        android:drawableLeft="@drawable/ic_baseline_home_24"
+        android:drawablePadding="25dp"
+        android:drawableTint="#B8B8B8"
+        android:hint="Period (Days)"
+        android:inputType="number"
+        android:padding="12dp"
+        android:textColor="#E9E9E9"
+        android:textColorHint="#B8B8B8"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/pin_box" />
+    <EditText
+        android:id="@+id/startDate_box"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="35dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="35dp"
+        android:background="@drawable/edittext_background"
+        android:drawableLeft="@drawable/ic_baseline_event_busy_24"
+        android:drawablePadding="25dp"
+        android:drawableTint="#B8B8B8"
+        android:hint="Start Date"
+        android:clickable="true"
+        android:focusable="false"
+        android:inputType="date"
+        android:padding="12dp"
+        android:textColor="#E9E9E9"
+        android:textColorHint="#B8B8B8"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/period_box" />
+
+    <Button
+        android:id="@+id/complete_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="45dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="45dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/button_style"
+        android:text="Capture Photo"
+        android:textColor="@android:color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/startDate_box" />
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

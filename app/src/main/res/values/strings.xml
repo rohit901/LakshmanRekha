@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">CovidAndro</string>
+    <string name="app_name">LakshmanRekha</string>
+    <string name="menu_item_settings">Settings</string>
 </resources>
