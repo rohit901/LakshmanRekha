@@ -11,17 +11,8 @@ This repository contains the code implementation for our [paper](https://ieeexpl
 
 ## Table of Contents
 
-- [Support](#support)
 - [License](#license)
 
----
-
-## Support
-
-Reach out to me at one of the following places!
-
-- Twitter <a href="http://twitter.com/rohit901" target="_blank">`@rohit901`</a>
-- LinkedIn <a href="https://www.linkedin.com/in/rohit901/"> `rohit901`</a> 
 
 ---
 
@@ -30,4 +21,4 @@ Reach out to me at one of the following places!
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat-square)](http://badges.mit-license.org)
 
 - **[MIT license](http://opensource.org/licenses/mit-license.php)**
-- Copyright 2021 © Rohit K Bharadwaj
+
