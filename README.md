@@ -33,7 +33,12 @@ COVID-19 has been announced as a Global Communal Health Extremity by WHO on Janu
 - [India Today](https://www.indiatoday.in/education-today/news/story/iit-mandi-develops-lakshmanrekha-an-ai-driven-home-quarantine-management-app-for-covid-patients-1766652-2021-02-06)
 
 ## Contributors
-
+- **Rohit K Bharadwaj** : Developed the Android Application, integrated geo-fencing and utilized latest face recognition models into the app.
+- **Piyush Goyal** : Developed the Backend Server and integrated facial recognition system in the backend.
+- **Gaurav Jaswal** : Supervision, Paper Writing, Figures.
+- **Daksh Thapar** : Supervision, Paper Writing, Figures, Backend coding.
+- **Aditya Nigam** : Initial Idea, Supervision, Guidance, Formulation.
+- **Kamlesh Tiwari** : Supervision, Guidance.
 ## License
 
 [![License](http://img.shields.io/:license-mit-blue.svg?style=flat-square)](http://badges.mit-license.org)
