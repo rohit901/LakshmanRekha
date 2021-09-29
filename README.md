@@ -37,7 +37,7 @@ COVID-19 has been announced as a Global Communal Health Extremity by WHO on Janu
 - **Piyush Goyal** : Developed the Backend Server and integrated facial recognition system in the backend.
 - **Gaurav Jaswal** : Supervision, Paper Writing, Figures.
 - **Daksh Thapar** : Supervision, Paper Writing, Figures, Backend coding.
-- **Aditya Nigam** : Initial Idea, Supervision, Guidance, Formulation.
+- **Aditya Nigam** : Initial Idea, Supervision, Guidance, Problem Statement Formulation.
 - **Kamlesh Tiwari** : Supervision, Guidance.
 ## License
 
